@@ -1,0 +1,302 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 스티커사진 - 완결판</title>
+    <style>
+        :root {
+            --primary-color: #ff85a2;
+            --secondary-color: #ffb7c5;
+            --bg-color: #fff0f3;
+        }
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0; overflow: hidden;
+            touch-action: none;
+        }
+
+        .screen {
+            display: none; flex-direction: column; align-items: center;
+            width: 95%; max-width: 1000px; background: white;
+            padding: 20px; border-radius: 30px;
+            box-shadow: 0 15px 50px rgba(255, 133, 162, 0.2);
+        }
+        .active { display: flex; }
+
+        h1 { color: var(--primary-color); margin: 0 0 15px 0; font-size: 24px; }
+
+        .layout-options { display: flex; gap: 15px; margin-bottom: 20px; }
+        .layout-btn {
+            width: 100px; height: 130px; border: 3px solid #eee;
+            border-radius: 15px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; cursor: pointer;
+            transition: 0.3s; background: #f9f9f9;
+        }
+        .layout-btn.selected { border-color: var(--primary-color); background: var(--bg-color); border-width: 4px; }
+        .box { width: 16px; height: 22px; background: #ddd; border-radius: 2px; margin: 2px; }
+
+        #video-container {
+            position: relative; width: 360px; height: 460px;
+            background: #000; border-radius: 20px; overflow: hidden;
+            border: 8px solid var(--secondary-color);
+        }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .shot-counter {
+            position: absolute; top: 15px; right: 15px;
+            background: var(--primary-color); color: white;
+            padding: 8px 15px; border-radius: 20px; font-weight: bold;
+        }
+
+        .editor-layout { display: flex; gap: 20px; width: 100%; height: 620px; }
+        #viewport {
+            flex: 1; height: 100%; border: 4px solid var(--primary-color);
+            border-radius: 20px; overflow: auto; background: #eee;
+            display: flex; justify-content: center; align-items: flex-start; padding: 20px;
+        }
+        #canvas-wrapper { position: relative; width: 400px; height: 600px; transform-origin: top center; }
+        canvas { position: absolute; top: 0; left: 0; background: transparent; cursor: crosshair; }
+        #bgCanvas { background: white; border-radius: 5px; }
+
+        .controls { width: 220px; display: flex; flex-direction: column; gap: 10px; }
+        .control-group { background: #fef2f4; padding: 12px; border-radius: 15px; border: 1px solid #ffe0e6; }
+        .pen-types { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        
+        label { font-size: 11px; font-weight: bold; color: #777; margin-bottom: 4px; display: block; }
+        button { padding: 9px; border: 1px solid #ddd; border-radius: 10px; background: white; cursor: pointer; font-weight: bold; font-size: 13px; }
+        button.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        
+        .main-btn { padding: 15px 40px; font-size: 18px; background: var(--primary-color); color: white; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; }
+        .reset-btn { background: #ff9800 !important; color: white !important; margin-top: 10px; }
+        .save-btn { background: #4CAF50; color: white; padding: 15px; margin-top: auto; }
+    </style>
+</head>
+<body>
+
+    <!-- [1단계] 시작 / 레이아웃 선택 -->
+    <div id="start-screen" class="screen active">
+        <h1>📸 나만의 스티커사진 📸</h1>
+        <div class="layout-options">
+            <div id="opt-4" class="layout-btn selected" onclick="selectLayout(4)">
+                <div style="display:grid; grid-template-columns: 1fr 1fr;"><div class="box"></div><div class="box"></div><div class="box"></div><div class="box"></div></div>
+                <span>4컷 촬영</span>
+            </div>
+            <div id="opt-6" class="layout-btn" onclick="selectLayout(6)">
+                <div style="display:grid; grid-template-columns: 1fr 1fr;"><div class="box"></div><div class="box"></div><div class="box"></div><div class="box"></div><div class="box"></div><div class="box"></div></div>
+                <span>6컷 촬영</span>
+            </div>
+        </div>
+        <button class="main-btn" onclick="goToCamera()">촬영 시작하기</button>
+    </div>
+
+    <!-- [2단계] 촬영 화면 -->
+    <div id="camera-screen" class="screen">
+        <h1 id="camera-title">치~즈! ✌️</h1>
+        <div id="video-container">
+            <video id="webcam" autoplay playsinline></video>
+            <div id="counter" class="shot-counter">1 / 4</div>
+        </div>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button onclick="retakeLastShot()" id="btn-retake-last" style="display:none; background:#ff9800; color:white;">방금 거 다시 찍기</button>
+            <button class="main-btn" onclick="takePhoto()">찰칵!</button>
+            <button onclick="location.reload()" style="background:#eee;">취소</button>
+        </div>
+    </div>
+
+    <!-- [3단계] 꾸미기 화면 -->
+    <div id="editor-screen" class="screen">
+        <div class="editor-layout">
+            <div id="viewport">
+                <div id="canvas-wrapper">
+                    <canvas id="bgCanvas" width="400" height="600"></canvas>
+                    <canvas id="drawCanvas" width="400" height="600"></canvas>
+                    <canvas id="tempCanvas" width="400" height="600"></canvas>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="control-group"><label>🔍 확대 비율</label>
+                    <input type="range" id="zoomSlider" min="1" max="2.5" step="0.1" value="1" oninput="updateZoom(this.value)"></div>
+                <div class="control-group"><label>✏️ 펜 모드</label>
+                    <div class="pen-types">
+                        <button onclick="setMode('normal')" id="btn-normal">기본펜</button>
+                        <button onclick="setMode('neon')" id="btn-neon" class="active">네온펜</button>
+                        <button onclick="setMode('magic')" id="btn-magic">무지개</button>
+                        <button onclick="setMode('eraser')" id="btn-eraser">지우개</button>
+                    </div>
+                </div>
+                <button style="background:#666; color:white;" onclick="undo()">UNDO (되돌리기)</button>
+                <div class="control-group"><label>🎨 색상 / 📏 굵기</label>
+                    <input type="color" id="colorPicker" value="#00f2ff" style="width:100%; height:30px; margin-bottom:5px;">
+                    <input type="range" id="sizePicker" min="1" max="60" value="15"></div>
+                
+                <!-- 새로 추가된 버튼들 -->
+                <button onclick="clearCanvas()">낙서 전체 삭제</button>
+                <button class="reset-btn" onclick="resetGame()">다시 찍으러 가기 🔄</button>
+                
+                <button class="save-btn" onclick="saveImage()">📸 사진 저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const screens = ['start-screen', 'camera-screen', 'editor-screen'];
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const drawCtx = drawCanvas.getContext('2d');
+        const tempCanvas = document.getElementById('tempCanvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+
+        let totalPhotos = 4, photosTaken = [], isDrawing = false;
+        let lastX = 0, lastY = 0, mode = 'neon', hue = 0, zoomLevel = 1, stream = null;
+        let history = [];
+        let currentPath = [];
+
+        function showScreen(id) {
+            screens.forEach(s => document.getElementById(s).classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        // 처음부터 다시하기 기능
+        function resetGame() {
+            if(confirm('지금까지 꾸민 사진이 사라집니다. 다시 촬영하러 갈까요?')) {
+                photosTaken = [];
+                history = [];
+                drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+                tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                showScreen('start-screen');
+            }
+        }
+
+        function updateZoom(val) { zoomLevel = parseFloat(val); canvasWrapper.style.transform = `scale(${zoomLevel})`; }
+        function saveHistory() { if (history.length > 20) history.shift(); history.push(drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height)); }
+        function undo() { if (history.length > 0) drawCtx.putImageData(history.pop(), 0, 0); }
+        function selectLayout(n) { totalPhotos = n; document.getElementById('opt-4').classList.toggle('selected', n === 4); document.getElementById('opt-6').classList.toggle('selected', n === 6); }
+
+        async function goToCamera() {
+            photosTaken = []; updateCameraUI();
+            showScreen('camera-screen');
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                document.getElementById('webcam').srcObject = stream;
+            } catch (err) { alert("카메라 권한을 확인해주세요!"); showScreen('start-screen'); }
+        }
+
+        function updateCameraUI() {
+            const cur = photosTaken.length + 1;
+            document.getElementById('counter').innerText = `${cur} / ${totalPhotos}`;
+            document.getElementById('btn-retake-last').style.display = photosTaken.length > 0 ? 'inline-block' : 'none';
+        }
+
+        function retakeLastShot() { if (photosTaken.length > 0) { photosTaken.pop(); updateCameraUI(); } }
+
+        function takePhoto() {
+            const padding = 10, cols = 2, rows = totalPhotos / cols;
+            const slotW = (bgCanvas.width - (padding * (cols + 1))) / cols;
+            const slotH = (bgCanvas.height - (padding * (rows + 1))) / rows;
+            const temp = document.createElement('canvas'); temp.width = slotW; temp.height = slotH;
+            const tCtx = temp.getContext('2d');
+            const video = document.getElementById('webcam');
+            const vW = video.videoWidth, vH = video.videoHeight;
+            const vR = vW / vH, sR = slotW / slotH;
+            let dW, dH, oX, oY;
+            if (vR > sR) { dH = vH; dW = vH * sR; oX = (vW - dW) / 2; oY = 0; } else { dW = vW; dH = vW / sR; oX = 0; oY = (vH - dH) / 2; }
+            tCtx.save(); tCtx.translate(slotW, 0); tCtx.scale(-1, 1);
+            tCtx.drawImage(video, oX, oY, dW, dH, 0, 0, slotW, slotH);
+            tCtx.restore();
+            photosTaken.push(temp.toDataURL('image/png'));
+            if (photosTaken.length < totalPhotos) updateCameraUI(); else finalizeGrid();
+        }
+
+        function finalizeGrid() {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            bgCtx.fillStyle = "#fff"; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            const padding = 10, cols = 2, rows = totalPhotos / cols;
+            const slotW = (bgCanvas.width - (padding * (cols + 1))) / cols;
+            const slotH = (bgCanvas.height - (padding * (rows + 1))) / rows;
+            let loaded = 0;
+            photosTaken.forEach((data, i) => {
+                const img = new Image();
+                img.onload = () => {
+                    bgCtx.drawImage(img, padding + (i % cols) * (slotW + padding), padding + Math.floor(i / cols) * (slotH + padding), slotW, slotH);
+                    if (++loaded === totalPhotos) { showScreen('editor-screen'); }
+                };
+                img.src = data;
+            });
+        }
+
+        function getCoords(e) {
+            const rect = tempCanvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return { x: (clientX - rect.left) * (tempCanvas.width / rect.width), y: (clientY - rect.top) * (tempCanvas.height / rect.height) };
+        }
+
+        function startDrawing(e) { saveHistory(); isDrawing = true; currentPath = [getCoords(e)]; }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const coords = getCoords(e);
+            currentPath.push(coords);
+            tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+            const color = document.getElementById('colorPicker').value;
+            const size = parseInt(document.getElementById('sizePicker').value);
+            if (mode === 'eraser') {
+                drawCtx.globalCompositeOperation = 'destination-out';
+                drawPath(drawCtx, currentPath, size, color, false);
+            } else {
+                tempCtx.globalCompositeOperation = 'source-over';
+                drawPath(tempCtx, currentPath, size, color, mode === 'neon');
+            }
+        }
+
+        function stopDrawing() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            if (mode !== 'eraser') {
+                drawCtx.globalCompositeOperation = 'source-over';
+                drawCtx.drawImage(tempCanvas, 0, 0);
+            }
+            tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+            currentPath = [];
+        }
+
+        function drawPath(ctx, path, size, color, isNeon) {
+            if (path.length < 2) return;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            if (isNeon) {
+                ctx.shadowBlur = size * 1.3; ctx.shadowColor = color; ctx.strokeStyle = color; ctx.lineWidth = size;
+                ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+                ctx.stroke();
+                ctx.shadowBlur = 0; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = size * 0.4; ctx.stroke();
+            } else {
+                ctx.shadowBlur = 0; ctx.lineWidth = size;
+                ctx.strokeStyle = (mode === 'magic') ? `hsl(${hue}, 100%, 50%)` : color;
+                if (mode === 'magic') hue = (hue + 2) % 360;
+                ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+                ctx.stroke();
+            }
+        }
+
+        function setMode(m) { mode = m; document.querySelectorAll('.pen-types button').forEach(b => b.classList.toggle('active', b.id === `btn-${m}`)); }
+        function clearCanvas() { if(confirm('낙서를 다 지울까요?')) { saveHistory(); drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); } }
+        function saveImage() {
+            const temp = document.createElement('canvas'); temp.width = 400; temp.height = 600;
+            const tCtx = temp.getContext('2d'); tCtx.drawImage(bgCanvas, 0, 0); tCtx.drawImage(drawCanvas, 0, 0);
+            const link = document.createElement('a'); link.download = 'my_sticker.png'; link.href = temp.toDataURL(); link.click();
+        }
+
+        tempCanvas.addEventListener('mousedown', startDrawing); window.addEventListener('mousemove', draw); window.addEventListener('mouseup', stopDrawing);
+        tempCanvas.addEventListener('touchstart', (e) => { startDrawing(e.touches[0]); e.preventDefault(); }, {passive: false});
+        tempCanvas.addEventListener('touchmove', (e) => { draw(e.touches[0]); e.preventDefault(); }, {passive: false});
+        tempCanvas.addEventListener('touchend', stopDrawing);
+    </script>
+</body>
+</html>
